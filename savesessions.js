@@ -178,6 +178,8 @@ function RemoveAllSessions() {
       DeleteTab(index, false);
     }
   }
+  global.tabs_opened = [];
+  global.setPersistent("tabs_opened", true);
 }
 
 if (global.tabs_opened == null) {
