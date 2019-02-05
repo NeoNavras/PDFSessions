@@ -54,7 +54,7 @@ function AddSession(name) {
     cName: "del" + name,
     cUser: name,
     cParent: deleteMenu,
-    cExec: "DeleteTab(\"" + name + "\");"
+    cExec: "DeleteTab(\"" + name + "\", true);"
   });
 }
 
