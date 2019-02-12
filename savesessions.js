@@ -129,6 +129,7 @@ var sessionManager = {
     if (proceed) {
       app.hideMenuItem("open" + name);
       app.hideMenuItem("del" + name);
+      app.hideMenuItem("edit" + name);
       delete global.tabs_opened[name];
       global.setPersistent("tabs_opened", true);
     }
@@ -207,7 +208,6 @@ var sessionManager = {
   },
 
   EditTab: function(session) {
-    var session = 'bash';
     this.oDlgEditSession.strSessionData = global.tabs_opened[session];
     if(app.execDialog(this.oDlgEditSession) == 'ok') {
       var json = this.oDlgEditSession.strSessionData;
@@ -216,7 +216,6 @@ var sessionManager = {
       } else {
         app.alert('Malformed JSON, not saving.');
       }
-
     }
   },
 
@@ -228,9 +227,9 @@ var sessionManager = {
       for (index in global.tabs_opened) {
         this.DeleteTab(index, false);
       }
+      global.tabs_opened = [];
+      global.setPersistent("tabs_opened", true);
     }
-    global.tabs_opened = [];
-    global.setPersistent("tabs_opened", true);
   },
 
   IsValidJSON: function (str) {
