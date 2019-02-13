@@ -11,6 +11,7 @@
 var sessionManager = {
   parentMenu: "Window",
   openMenu: "&Open Session",
+  updateMenu: "&Update Session",
   deleteMenu: "&Delete Session",
   editMenu: "&Edit Session Data",
   deleteAll: "&Remove All Sessions",
@@ -18,12 +19,34 @@ var sessionManager = {
   // Session Edit Dialog Definition
   oDlgEditSession: {
     strSessionData: '[]',
+    IsValidJSON: {}/*injected*/,
     initialize: function (dialog) {
       dialog.load({"sese": this.strSessionData});
     },
     commit: function (dialog) {
       var data = dialog.store();
       this.strSessionData = data["sese"];
+    },
+    validate: function(dialog) {
+      var data = dialog.store();
+      var error = this.IsValidJSON(data["sese"], true);
+      if (true !== error) {
+        app.alert(error.message);
+        return false;
+      }
+      return true;
+    },
+    other: function (dialog) { // other button
+      var data = dialog.store();
+      var message = '';
+      var error = this.IsValidJSON(data["sese"], true);
+
+      if (true !== error) {
+        message = error.message;
+      } else {
+        message = 'Valid JSON';
+      }
+      app.alert(message);
     },
     description: {
       name: "Session Edit", elements:
@@ -33,7 +56,7 @@ var sessionManager = {
               [
                 {name: "Edit Session JSON", type: "static_text",},
                 {item_id: "sese", type: "edit_text", multiline: true, char_width: 120, char_height: 80},
-                {type: "ok_cancel"},
+                {type: "ok_cancel_other", other_name: "Check Syntax"},
               ]
           },
         ]
@@ -77,6 +100,13 @@ var sessionManager = {
     });
 
     app.addMenuItem({
+      cName: "update" + name,
+      cUser: name,
+      cParent: this.updateMenu,
+      cExec: "sessionManager.UpdateTab(\"" + name + "\", true);"
+    });
+
+    app.addMenuItem({
       cName: "del" + name,
       cUser: name,
       cParent: this.deleteMenu,
@@ -89,6 +119,15 @@ var sessionManager = {
       cParent: this.editMenu,
       cExec: "sessionManager.EditTab(\"" + name + "\", true);"
     });
+  },
+  /*
+  Hides named menu item
+   */
+  HideMenu: function (name) {
+    app.hideMenuItem("open" + name);
+    app.hideMenuItem("del" + name);
+    app.hideMenuItem("edit" + name);
+    app.hideMenuItem("update" + name);
   },
 
   /*
@@ -127,9 +166,7 @@ var sessionManager = {
       }
     }
     if (proceed) {
-      app.hideMenuItem("open" + name);
-      app.hideMenuItem("del" + name);
-      app.hideMenuItem("edit" + name);
+      this.HideMenu(name);
       delete global.tabs_opened[name];
       global.setPersistent("tabs_opened", true);
     }
@@ -146,18 +183,20 @@ var sessionManager = {
   }),
 
   GetSession: function (name) {
-    var result = [];
     try {
       if (global.tabs_opened[name]) {
-        result = JSON.parse(global.tabs_opened[name]);
+        return JSON.parse(global.tabs_opened[name]);
       }
     } catch (ee) {
       console.println('GetSession: ' + ee);
     }
 
-    return result;
+    return [];
   },
-
+  /*
+   Saves session data to global store.
+   if addToMenu true, adds into menu
+   */
   PersistSession: function (sessionName, sessionData, addToMenu) {
     sessionData = (typeof sessionData !== 'undefined') ? sessionData : '[]';
     addToMenu = (typeof addToMenu !== 'undefined') ? addToMenu : true;
@@ -166,6 +205,22 @@ var sessionManager = {
     if (addToMenu) {
       this.AddSessionToMenu(sessionName)
     }
+  },
+  /*
+   Gets JSON for all open docs
+  */
+  GetDocumentsJSON: function (trustedActiveDocs) {
+    docs = [];
+
+    for (var i = 0; i < trustedActiveDocs.length; i++) {
+      docs.push(
+        {
+          'path': trustedActiveDocs[i].path,
+          'pageNum': trustedActiveDocs[i].pageNum
+        }
+      )
+    }
+    return JSON.stringify(docs, null, 2);
   },
 
   /*
@@ -191,27 +246,35 @@ var sessionManager = {
 
       if (nRslt == 4) {
         var session = this.oDlg.strName;
-        docs = [];
-
-        for (var i = 0; i < d.length; i++) {
-          docs.push(
-            {
-              'path': d[i].path,
-              'pageNum': d[i].pageNum
-            }
-          )
-        }
-        json = JSON.stringify(docs);
-        this.PersistSession(session, json, !already_exists);
+        this.PersistSession(session, this.GetDocumentsJSON(d), !already_exists);
       }
     }
   },
+  /*
+   Updates existing session with currently opened docs and positions
+   */
+  UpdateTab: function (name) {
+    var d = this.trustedActiveDocs();
+    if (d.length == 0) {
+      app.alert("No documents opened to update into session \"" + name + "\"", 3);
 
-  EditTab: function(session) {
+      return;
+    }
+
+    var nRslt = app.alert("Really update session \"" + name + "\" with current documents?\n\n" + "Do you want to continue?", 2, 2, "Submit Validation");
+    if (nRslt == 4) {
+      this.PersistSession(name, this.GetDocumentsJSON(d), false);
+    }
+  },
+  /*
+   Allows to manually edit the JSON store for the named session.
+   */
+  EditTab: function (session) {
     this.oDlgEditSession.strSessionData = global.tabs_opened[session];
-    if(app.execDialog(this.oDlgEditSession) == 'ok') {
+    this.oDlgEditSession.IsValidJSON = this.IsValidJSON;
+    if (app.execDialog(this.oDlgEditSession) == 'ok') {
       var json = this.oDlgEditSession.strSessionData;
-      if(this.IsValidJSON(json)) {
+      if (this.IsValidJSON(json)) {
         this.PersistSession(session, json, false);
       } else {
         app.alert('Malformed JSON, not saving.');
@@ -232,20 +295,26 @@ var sessionManager = {
     }
   },
 
-  IsValidJSON: function (str) {
+  IsValidJSON: function (str, returnError) {
+    returnError = (typeof returnError !== 'undefined') ? returnError : false;
     try {
       JSON.parse(str);
+      return true;
     } catch (e) {
+      if (returnError) {
+        return e;
+      }
       return false;
     }
-    return true;
   },
 
   /*
    Add menu items
    */
   init: function () {
+
     if (global.tabs_opened == null) {
+      console.println('init: ' + 'global.tabs_opened == null');
       global.tabs_opened = []
       global.setPersistent("tabs_opened", true);
     }
@@ -268,12 +337,17 @@ var sessionManager = {
     });
 
     app.addSubMenu({
-      cName: this.deleteMenu,
+      cName: this.updateMenu,
       cParent: this.parentMenu,
     });
 
     app.addSubMenu({
       cName: this.editMenu,
+      cParent: this.parentMenu,
+    });
+
+    app.addSubMenu({
+      cName: this.deleteMenu,
       cParent: this.parentMenu,
     });
 
