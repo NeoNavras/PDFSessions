@@ -152,6 +152,8 @@ var sessionManager = {
         if (-1 == paths.indexOf(session[doc].path)) {
           d.pageNum = session[doc].pageNum;
         }
+		d.layout = session[doc].layout;
+		d.zoom = session[doc].zoom;
       } catch (e) {
         console.println('LoadTabs: ' + e);
       }
@@ -216,7 +218,9 @@ var sessionManager = {
       docs.push(
         {
           'path': trustedActiveDocs[i].path,
-          'pageNum': trustedActiveDocs[i].pageNum
+          'pageNum': trustedActiveDocs[i].pageNum,
+		  'zoom': trustedActiveDocs[i].zoom,
+		  'layout': trustedActiveDocs[i].layout
         }
       )
     }
