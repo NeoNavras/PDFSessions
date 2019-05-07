@@ -4,7 +4,8 @@
   https://stackoverflow.com/questions/12689154/adobe-acrobat-reader-tabs-saving-and-autoloading
   Put it in $HOME/.adobe/Acrobat/9.0/JavaScripts (or in
   the equivalent program files folder under Windows,
-  %appdata%/adobe/acrobat/Privileged/DC/JavaScripts)
+  %appdata%/adobe/acrobat/Privileged/DC/JavaScripts, or
+  C:\Program Files (x86)\Adobe\Acrobat Reader DC\Reader\Javascripts)
   and it will automatically
   be loaded.
 */
