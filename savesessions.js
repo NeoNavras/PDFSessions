@@ -159,6 +159,16 @@ var sessionManager = {
         console.println('LoadTabs: ' + e);
       }
     }
+    for (doc in session) {
+      try {
+        if (session[doc].isFront) {
+          app.openDoc(session[doc].path);
+          break;
+        }
+      } catch (ee) {
+        console.println('bringToFront: ' + ee);
+      }
+    }
   },
 
   DeleteTab: function (name, warn) {
@@ -216,12 +226,18 @@ var sessionManager = {
     docs = [];
 
     for (var i = 0; i < trustedActiveDocs.length; i++) {
+      if ( trustedActiveDocs[i].path==currentDocPath() ) {
+        var isFront = true; //aka currently reading
+      } else {
+        var isFront = false;
+      }
       docs.push(
         {
           'path': trustedActiveDocs[i].path,
           'pageNum': trustedActiveDocs[i].pageNum,
           'zoom': trustedActiveDocs[i].zoom,
-          'layout': trustedActiveDocs[i].layout
+          'layout': trustedActiveDocs[i].layout,
+          'isFront': isFront
         }
       )
     }
@@ -367,4 +383,10 @@ var sessionManager = {
     }
   }
 }
+
+//function to get the path of the currently-viewed aka inFront document
+var currentDocPath = function currentDocPath() {
+  return this.path;
+};
+
 sessionManager.init();
