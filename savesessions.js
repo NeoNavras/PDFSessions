@@ -10,6 +10,9 @@
   be loaded.
 */
 var sessionManager = {
+  /** helper function to get current tab doc */
+  currentDocPath: {},/*injected on init*/
+
   parentMenu: "Window",
   openMenu: "&Open Session",
   updateMenu: "&Update Session",
@@ -21,14 +24,17 @@ var sessionManager = {
   oDlgEditSession: {
     strSessionData: '[]',
     IsValidJSON: {}/*injected*/,
+
     initialize: function (dialog) {
       dialog.load({"sese": this.strSessionData});
     },
+
     commit: function (dialog) {
       var data = dialog.store();
       this.strSessionData = data["sese"];
     },
-    validate: function(dialog) {
+
+    validate: function (dialog) {
       var data = dialog.store();
       var error = this.IsValidJSON(data["sese"], true);
       if (true !== error) {
@@ -37,6 +43,7 @@ var sessionManager = {
       }
       return true;
     },
+
     other: function (dialog) { // other button
       var data = dialog.store();
       var message = '';
@@ -49,6 +56,7 @@ var sessionManager = {
       }
       app.alert(message);
     },
+
     description: {
       name: "Session Edit", elements:
         [
@@ -82,16 +90,17 @@ var sessionManager = {
               [
                 {name: "Enter your name:", type: "static_text",},
                 {item_id: "usnm", type: "edit_text", char_width: 40},
-                {type: "ok_cancel"},
+                {type: "ok_cancel"}
               ]
           },
         ]
     }
   },
 
-  /*
-  Loads named session into menus
-  */
+  /**
+   * Loads named session into menus
+   * @param name
+   */
   AddSessionToMenu: function (name) {
     app.addMenuItem({
       cName: "open" + name,
@@ -121,8 +130,10 @@ var sessionManager = {
       cExec: "sessionManager.EditTab(\"" + name + "\", true);"
     });
   },
-  /*
-  Hides named menu item
+
+  /**
+   * Hides named menu item
+   * @param name
    */
   HideMenu: function (name) {
     app.hideMenuItem("open" + name);
@@ -131,36 +142,66 @@ var sessionManager = {
     app.hideMenuItem("update" + name);
   },
 
-  /*
-   Loading Saved Tabs
-  */
+  /**
+   * Loading Saved Tabs
+   * @param name
+   */
   LoadTabs: function (name) {
     var session = this.GetSession(name);
     if (session == null || session == []) {
 
       return;
     }
-    var d = this.trustedActiveDocs();
+    var docs = this.trustedActiveDocs();
     var paths = [];
-    for (var i = 0; i < d.length; i++) {
-      paths.push(d[i].path)
+    for (var i = 0; i < docs.length; i++) {
+      paths.push(docs[i].path)
     }
+    var doc = {};
 
+    // open and apply data
     for (doc in session) {
       try {
         var d = app.openDoc(session[doc].path);
-        // if a session doc already open, do not change page
-        if (-1 == paths.indexOf(session[doc].path)) {
-          d.pageNum = session[doc].pageNum;
+        // if a session doc already open, do not change page, layout or zoom etc
+        if (-1 === paths.indexOf(session[doc].path)) {
+          // retained for compatibility
+          if ('undefined' !== typeof session[doc].pageNum) {
+            d.pageNum = session[doc].pageNum;
+          }
+          if ('undefined' !== typeof session[doc].layout) {
+            d.layout = session[doc].layout;
+          }
+          if ('undefined' !== typeof session[doc].zoom) {
+            d.zoom = session[doc].zoom;
+          }
+          // use viewstate if exists.
+          if ('undefined' !== typeof session[doc].viewState) {
+            d.viewState = eval(session[doc].viewState); //no other choices but eval.
+          }
         }
-        d.layout = session[doc].layout;
-        d.zoom = session[doc].zoom;
       } catch (e) {
-        console.println('LoadTabs: ' + e);
+        console.println('applyViewState: ' + e);
+      }
+    }
+    //focus on doc tagged isFront
+    for (doc in session) {
+      try {
+        if (session[doc].isFront) {
+          app.openDoc(session[doc].path);
+          break;
+        }
+      } catch (e) {
+        console.println('bringToFront: ' + e);
       }
     }
   },
 
+  /**
+   *
+   * @param name
+   * @param warn
+   */
   DeleteTab: function (name, warn) {
     var proceed = true;
     if (undefined !== warn && warn) {
@@ -175,9 +216,10 @@ var sessionManager = {
     }
   },
 
-  /*
-   Function with trusted section returning opened documents
-  */
+  /**
+   * Function with trusted section returning opened documents
+   * @returns {Array|Object[]}
+   */
   trustedActiveDocs: app.trustedFunction(function () {
     app.beginPriv();
     var d = app.activeDocs;
@@ -185,6 +227,11 @@ var sessionManager = {
     return d;
   }),
 
+  /**
+   * Loads session from global store
+   * @param name
+   * @returns {Array}
+   */
   GetSession: function (name) {
     try {
       if (global.tabs_opened[name]) {
@@ -196,9 +243,13 @@ var sessionManager = {
 
     return [];
   },
-  /*
-   Saves session data to global store.
-   if addToMenu true, adds into menu
+
+  /**
+   * Persists session data to global store.
+   * if addToMenu true, adds into menu
+   * @param sessionName
+   * @param sessionData
+   * @param addToMenu
    */
   PersistSession: function (sessionName, sessionData, addToMenu) {
     sessionData = (typeof sessionData !== 'undefined') ? sessionData : '[]';
@@ -209,28 +260,33 @@ var sessionManager = {
       this.AddSessionToMenu(sessionName)
     }
   },
-  /*
-   Gets JSON for all open docs
-  */
+
+  /**
+   * Gets JSON for all open docs
+   * @param trustedActiveDocs {Object}
+   * @returns {string}
+   */
   GetDocumentsJSON: function (trustedActiveDocs) {
-    docs = [];
+    var docs = [];
 
     for (var i = 0; i < trustedActiveDocs.length; i++) {
       docs.push(
         {
-          'path': trustedActiveDocs[i].path,
+          'path': trustedActiveDocs[i].path,/*
           'pageNum': trustedActiveDocs[i].pageNum,
           'zoom': trustedActiveDocs[i].zoom,
-          'layout': trustedActiveDocs[i].layout
+          'layout': trustedActiveDocs[i].layout*/
+          'viewState': trustedActiveDocs[i].viewState.toSource(),
+          'isFront': currentDocPath() === trustedActiveDocs[i].path
         }
       )
     }
     return JSON.stringify(docs, null, 2);
   },
 
-  /*
-   Saving Tabs that are opened
-  */
+  /**
+   * Saving Tabs that are opened (session) data
+   */
   SaveSession: function () {
     var d = this.trustedActiveDocs();
 
@@ -255,8 +311,9 @@ var sessionManager = {
       }
     }
   },
-  /*
-   Updates existing session with currently opened docs and positions
+
+  /**
+   * Updates existing session with currently opened docs and positions
    */
   UpdateTab: function (name) {
     var d = this.trustedActiveDocs();
@@ -271,8 +328,10 @@ var sessionManager = {
       this.PersistSession(name, this.GetDocumentsJSON(d), false);
     }
   },
-  /*
-   Allows to manually edit the JSON store for the named session.
+
+  /**
+   * Allows to manually edit the JSON store for the named session.
+   * @param session
    */
   EditTab: function (session) {
     this.oDlgEditSession.strSessionData = global.tabs_opened[session];
@@ -287,9 +346,9 @@ var sessionManager = {
     }
   },
 
-  /*
-   Remove all saved sessions
-  */
+  /**
+   * Remove all saved sessions
+   */
   RemoveAllSessions: function () {
     if (4 == app.alert("Are you sure you want to delete all sessions?", 2, 2, "Submit Validation")) {
       for (index in global.tabs_opened) {
@@ -300,6 +359,12 @@ var sessionManager = {
     }
   },
 
+  /**
+   * Tests string for valid JSON structure
+   * @param str
+   * @param returnError
+   * @returns {boolean|*}
+   */
   IsValidJSON: function (str, returnError) {
     returnError = (typeof returnError !== 'undefined') ? returnError : false;
     try {
@@ -313,14 +378,16 @@ var sessionManager = {
     }
   },
 
-  /*
-   Add menu items
+  /**
+   * Add menu items and setup
+   * @param funcCurrentDocPath
    */
-  init: function () {
+  init: function (funcCurrentDocPath) {
+    this.currentDocPath = funcCurrentDocPath;
 
     if (global.tabs_opened == null) {
       console.println('init: ' + 'global.tabs_opened == null');
-      global.tabs_opened = []
+      global.tabs_opened = [];
       global.setPersistent("tabs_opened", true);
     }
 
@@ -338,22 +405,22 @@ var sessionManager = {
 
     app.addSubMenu({
       cName: this.openMenu,
-      cParent: this.parentMenu,
+      cParent: this.parentMenu
     });
 
     app.addSubMenu({
       cName: this.updateMenu,
-      cParent: this.parentMenu,
+      cParent: this.parentMenu
     });
 
     app.addSubMenu({
       cName: this.editMenu,
-      cParent: this.parentMenu,
+      cParent: this.parentMenu
     });
 
     app.addSubMenu({
       cName: this.deleteMenu,
-      cParent: this.parentMenu,
+      cParent: this.parentMenu
     });
 
     app.addMenuItem({
@@ -366,5 +433,13 @@ var sessionManager = {
       this.AddSessionToMenu(key);
     }
   }
-}
-sessionManager.init();
+};
+
+/**
+ * get the path of the currently-viewed aka inFront document
+ * @returns {string}
+ */
+var currentDocPath = function currentDocPath() {
+  return this.path;
+};
+sessionManager.init(currentDocPath);
