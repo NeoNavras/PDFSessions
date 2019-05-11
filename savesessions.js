@@ -10,9 +10,6 @@
   be loaded.
 */
 var sessionManager = {
-  /** helper function to get current tab doc */
-  currentDocPath: {},/*injected on init*/
-
   parentMenu: "Window",
   openMenu: "&Open Session",
   updateMenu: "&Update Session",
@@ -380,11 +377,8 @@ var sessionManager = {
 
   /**
    * Add menu items and setup
-   * @param funcCurrentDocPath
    */
-  init: function (funcCurrentDocPath) {
-    this.currentDocPath = funcCurrentDocPath;
-
+  init: function () {
     if (global.tabs_opened == null) {
       console.println('init: ' + 'global.tabs_opened == null');
       global.tabs_opened = [];
@@ -439,7 +433,7 @@ var sessionManager = {
  * get the path of the currently-viewed aka inFront document
  * @returns {string}
  */
-var currentDocPath = function currentDocPath() {
+var currentDocPath = function () {
   return this.path;
 };
-sessionManager.init(currentDocPath);
+sessionManager.init();
